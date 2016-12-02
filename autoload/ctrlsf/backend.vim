@@ -13,6 +13,9 @@ func! s:BuildCommand(args) abort
     " add executable file
     call add(tokens, g:ctrlsf_ackprg)
 
+    let backendargs = ctrlsf#opt#GetOpt('backendargs')
+    call add(tokens, backendargs)
+
     " If user has specified '-A', '-B' or '-C', then use it without complaint
     " else use the default value 'g:ctrlsf_context'
     let ctx_options = ctrlsf#opt#GetContext()

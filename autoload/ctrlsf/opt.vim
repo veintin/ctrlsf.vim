@@ -7,6 +7,7 @@
 
 " option list of CtrlSF
 let s:option_list = {
+    \ '-backendargs'  : {'args': 1},
     \ '-after'      : {'args': 1},
     \ '-before'     : {'args': 1},
     \ '-context'    : {'args': 1},
@@ -18,6 +19,7 @@ let s:option_list = {
     \ '-matchcase'  : {'args': 0},
     \ '-regex'      : {'args': 0},
     \ '-smartcase'  : {'args': 0},
+    \ '-E': {'fullname': '-backendargs'},
     \ '-A': {'fullname': '-after'},
     \ '-B': {'fullname': '-before'},
     \ '-C': {'fullname': '-context'},
