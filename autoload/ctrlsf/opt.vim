@@ -1,8 +1,8 @@
 " ============================================================================
-" Description: An ack/ag/pt powered code search and view tool.
+" Description: An ack/ag/pt/rg powered code search and view tool.
 " Author: Ye Ding <dygvirus@gmail.com>
 " Licence: Vim licence
-" Version: 1.7.3
+" Version: 1.8.3
 " ============================================================================
 
 " option list of CtrlSF
@@ -64,7 +64,7 @@ func! ctrlsf#opt#GetOpt(name) abort
     if has_key(s:options, a:name)
         return s:options[a:name]
     else
-        return get(s:default, 'a:name', '')
+        return get(s:default, a:name, '')
     endif
 endf
 
