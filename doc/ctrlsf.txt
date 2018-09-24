@@ -2,18 +2,18 @@
 
 Author:  Ye Ding <dygvirus@gmail.com>
 Licence: Vim licence, see |license|
-Version: 1.8.3
+Version: 2.0.0
 
 
-           .-') _   _  .-')              .-')               
-          (  OO) ) ( \( -O )            ( OO ).             
-   .-----./     '._ ,------.  ,--.     (_)---\_)   ,------. 
-  '  .--./|'--...__)|   /`. ' |  |.-') /    _ | ('-| _.---' 
-  |  |('-.'--.  .--'|  /  | | |  | OO )\  :` `. (OO|(_\     
- /_) |OO  )  |  |   |  |_.' | |  |`-' | '..`''.)/  |  '--.  
- ||  |`-'|   |  |   |  .  '.'(|  '---.'.-._)   \\_)|  .--'  
-(_'  '--'\   |  |   |  |\  \  |      | \       /  \|  |_)   
-   `-----'   `--'   `--' '--' `------'  `-----'    `--'     
+           .-') _   _  .-')              .-')                                 ~
+          (  OO) ) ( \( -O )            ( OO ).                               ~
+   .-----./     '._ ,------.  ,--.     (_)---\_)   ,------.                   ~
+  '  .--./|'--...__)|   /`. ' |  |.-') /    _ | ('-| _.---'                   ~
+  |  |('-.'--.  .--'|  /  | | |  | OO )\  :` `. (OO|(_\                       ~
+ /_) |OO  )  |  |   |  |_.' | |  |`-' | '..`''.)/  |  '--.                    ~
+ ||  |`-'|   |  |   |  .  '.'(|  '---.'.-._)   \\_)|  .--'                    ~
+(_'  '--'\   |  |   |  |\  \  |      | \       /  \|  |_)                     ~
+   `-----'   `--'   `--' '--' `------'  `-----'    `--'                       ~
 
 
 ================================================================================
@@ -82,8 +82,8 @@ A typical workflow using CtrlSF is like this:
   It is free because it won't invoke a same but new search. A useful command
   |:CtrlSFToggle| is also available.
 
-  7. Alternatively run `:CtrlSFQuickfix [pattern]`, it will only open a
-  quickfix window to show search results.
+  7. If you prefer a quickfix-like result window, just try to press `M` in
+  CtrlSF window.
 
 Note: The result set will additionally be stored in a |location-list| of the
 CtrlSF window. Open it using |:lopen|
@@ -147,12 +147,6 @@ mode:
   is given, the default directory is used, which is specified by
   |g:ctrlsf_default_root|.
 
-:CtrlSFQuickfix [arguments] {pattern} [path] ...               *:CtrlSFQuickfix*
-
-  Similar to |:CtrlSF|. Search {pattern}. Default is search by literal. Show
-  result in a quickfix window if there is no existing one, otherwise reuse
-  that one.
-
 :CtrlSFOpen                                                        *:CtrlSFOpen*
 
   If CtrlSF window is closed (by <q> or |:CtrlSFClose|), reopen it. If the
@@ -173,6 +167,10 @@ mode:
   If you have turned on |g:ctrlsf_selected_line_hl|, use this command to clear
   highlighting on the selected line.
 
+:CtrlSFStop                                                        *:CtrlSFStop*
+
+  Stop a background searching process.
+
 :CtrlSFToggle                                                    *:CtrlSFToggle*
 
   Open the CtrlSF window if it is closed, or vice versa.
@@ -182,6 +180,10 @@ mode:
   Toggle CtrlSF's default key mapping. This command can be used in CtrlSF
   window only.
 
+:CtrlSFFocus                                                      *:CtrlSFFocus*
+
+  Move cursor to CtrlS window and focus the first result.
+
 ================================================================================
 4. Key Maps                                                     *ctrlsf-keymaps*
 
@@ -190,57 +192,29 @@ mode:
     <Plug>CtrlSFPrompt      Input 'CtrlSF' in command line and waiting, just a
                             handy shortcut.
 
-    <Plug>CtrlSFQuickfixPrompt  Input 'CtrlSFQuickfix' in command line and
-                                waiting, just a handy shortcut to reveal in a
-                                quickfix window.
-
     <Plug>CtrlSFVwordPath    Input current visual selected word in command line
                              and waiting for any other user input.
 
-                             Use <Plug>CtrlSFQuickfixVwordPath for quickfix
-                             only window.
-
     <Plug>CtrlSFVwordExec    Similar to above, but execute it immediately.
-
-                             Use <Plug>CtrlSFQuickfixVwordExec for quickfix
-                             only window.
 
     <Plug>CtrlSFCwordPath    Input word in the cursor in command line and
                              waiting.
 
-                             Use <Plug>CtrlSFQuickfixCwordPath for quickfix
-                             only window.
-
     <Plug>CtrlSFCwordExec    Similar to above, but execute it immediately.
-
-                             Use <Plug>CtrlSFQuickfixCwordExec for quickfix
-                             only window.
 
     <Plug>CtrlSFCCwordPath   Similar to <Plug>CtrlSFCwordPath but will add word
                              boundary around searching word.
 
-                             Use <Plug>CtrlSFQuickfixCCwordPath for quickfix
-                             only window.
-
     <Plug>CtrlSFCCwordExec   Similar to above, but execute it immediately.
-
-                             Use <Plug>CtrlSFQuickfixCCwordExec for quickfix
-                             only window.
 
     <Plug>CtrlSFPwordPath    Input last search pattern in command line and
                              waiting.
 
-                             Use <Plug>CtrlSFQuickfixPwordPath for quickfix
-                             only window.
-
     <Plug>CtrlSFPwordExec    Similar to above, but execute it immediately.
-
-                             Use <Plug>CtrlSFQuickfixPwordExec for quickfix
-                             only window.
 
   Maps by default in CtrlSF window:
 
-    <Enter>, <o>   Open file which contains the line under cursor.
+    <Enter>, <o>, <2-LeftMouse> Open file which contains the line under cursor.
 
     <C-O>          Open file in a horizontally split window.
 
@@ -253,6 +227,8 @@ mode:
     <T>            Like <t>, but focus CtrlSF window instead of opened new tab.
 
     <q>            Quit CtrlSF. Also close preview window if any.
+
+    <C-C>          Stop running asynchronous searching.
 
     <C-J>          Move cursor to next match.
 
@@ -289,13 +265,14 @@ alias for '-context'.
 '-filetype'                                             *ctrlsf_args_filetype*
 
 Defines which type of files should the search be restricted to. view
-`ack --help=typs` for all available types.
+`ack --help=types` for all available types.
 >
     :CtrlSF -filetype vim foo
 <
 '-filematch', '-G'                       *ctrlsf_args_G* *ctrlsf_args_filematch*
 
 Defines a pattern that only files whose name is matching will be searched.
+The pattern might depend on the backend being used.
 >
     :Ctrlsf -filematch .*\.wrproject foo
 <
@@ -330,6 +307,12 @@ Make this search be case-sensitive.
 Use pattern as regular expression.
 >
     :CtrlSF -R foo.*
+
+'-word', '-W'                                               *ctrlsf_args_word*
+
+Search only for whole words.
+>
+    :CtrlSF -W foo
 <
 '-smartcase'                                           *ctrlsf_args_smartcase*
 
@@ -340,6 +323,14 @@ Make this search be smart-cased.
 ================================================================================
 6. Options                                                      *ctrlsf-options*
 
+g:ctrlsf_absolute_file_path                      *'g:ctrlsf_absolute_file_path'*
+Default: 0
+'g:ctrlsf_absolute_file_path' defines whether CtrlSF uses absolute path or
+relative path (if possible) for files. This option is automatically applied if
+'autochdir' is enabled.
+>
+    let g:ctrlsf_absolute_file_path = 1
+<
 g:ctrlsf_ackprg                                              *'g:ctrlsf_ackprg'*
 Default: auto
 Available: 'ag', 'ack', 'pt', 'rg'
@@ -351,12 +342,21 @@ explicitly set it by
     let g:ctrlsf_ackprg = '/usr/local/bin/ag'
 <
 g:ctrlsf_auto_close                                      *'g:ctrlsf_auto_close'*
-Default: 1
-'g:ctrlsf_auto_close' defines how CtrlSF handle itself after you have opened
-a file from CtrlSF window. By default CtrlSF will close itself but you can
-prevent this behavior by setting this option to 0
+Default:
+    {
+        "normal" : 1,
+        "compact": 0
+    }
+'g:ctrlsf_auto_close' defines how CtrlSF handles itself in 'normal' and 'compact'
+view mode(|g:ctrlsf_default_view_mode|) respectively after you have opened a file
+from CtrlSF window. By default, CtrlSF will close itself in 'normal' view mode and
+keep open in 'compact' view mode.
+You can customize it as you will:
 >
-    let g:ctrlsf_auto_close = 0
+    let g:ctrlsf_auto_close = {
+        \ "normal" : 0,
+        \ "compact": 0
+        \ }
 <
 g:ctrlsf_case_sensitive                              *'g:ctrlsf_case_sensitive'*
 Default: 'smart'
@@ -427,6 +427,14 @@ Explanation for each option:
 >
     let g:ctrlsf_default_root = 'project+fw'
 <
+g:ctrlsf_default_view_mode                        *'g:ctrlsf_default_view_mode'*
+Default: 'normal'
+Available: 'normal', 'compact'
+Defines default view mode of CtrlSF result window. 'normal' is a Sublime-like
+view and 'compact' is a quickfix-like view.
+>
+    let g:ctrlsf_default_view_mode = 'compact'
+<
 g:ctrlsf_extra_backend_args                      *'g:ctrlsf_extra_backend_args'*
 Default: {}
 Defines extra arguments that will be passed **literally** to backend. It's
@@ -442,7 +450,7 @@ Default: ''
 Defines directories that will be ignored by default. It's useful for backend
 that does not respect to '.gitignore'.
 >
-    let g:ctrlsf_ignore_dir = ['bower_components', 'npm_modules']
+    let g:ctrlsf_ignore_dir = ['bower_components', 'node_modules']
 <
 
 g:ctrlsf_indent                                              *'g:ctrlsf_indent'*
@@ -459,6 +467,24 @@ in editing.  Then you can change default mapping by setting this option. A
 subset of available methods is valid, those unspecified methods will use default
 keys. You can also disable a method by mapping it to an empty string.
 
+Key id and its functionality:
+>
+    open    - open file.
+    openb   - open file in background.
+    split   - split window horizontally then open file.
+    vsplit  - split window vertically then open file.
+    tab     - open file in a new tab.
+    tabb    - open file in a background new tab.
+    popen   - open preview window.
+    popenf  - open preview window in foreground.
+    quit    - close main window.
+    next    - jump to next match.
+    prev    - jump to previous match.
+    pquit   - close preview window.
+    loclist - open location list in main window.
+    chgmode - switch view mode.
+    stop    - stop running asynchronous searching.
+<
 Default:
 >
     {
@@ -469,21 +495,41 @@ Default:
         "tab"     : "t",
         "tabb"    : "T",
         "popen"   : "p",
+        "popenf"  : "P",
         "quit"    : "q",
         "next"    : "<C-J>",
         "prev"    : "<C-K>",
         "pquit"   : "q",
         "loclist" : "",
+        "chgmode" : "M",
+        "stop"    : "<C-C>",
     }
 <
+Sometimes you may wish for a method to also perform a complementary action such
+as scrolling the window, or returning focus to the CtrlSF window. In that case
+you can specify the method's value as a dictionary with a 'key' and a 'suffix',
+which contains the additional keys to execute after the method. In the following
+example, 'suffix' will return focus to the CtrlSF window after 'openb' is
+executed.
+
 Example:
 >
     let g:ctrlsf_mapping = {
+        \ "openb": { key: "O", suffix: "<C-w>p" },
         \ "next": "n",
         \ "prev": "N",
         \ "openb": "",
         \ }
 <
+g:ctrlsf_parse_speed                                    *'g:ctrlsf_parse_speed'*
+Default: 300
+The count of lines which CtrlSF will parse in every 200 milliseconds. If you
+find the default value is too large and make your Vim slow during asynchronous
+searching, you can set it a more moderate value:
+>
+    let g:ctrlsf_parse_speed = 100
+<
+
 g:ctrlsf_populate_qflist                            *'g:ctrlsf_populate_qflist'*
 Default: 0
 Defines whether CtrlSF will feed quickfix and location list with search result.
@@ -507,6 +553,14 @@ pattern literally, if you want CtrlSF use regular expression by default (like
 Ack/Ag), you can set it to 1.
 >
     let g:ctrlsf_regex_pattern = 1
+<
+g:ctrlsf_search_mode                                    *'g:ctrlsf_search_mode'*
+Default: 'async' for version 8.0+, 'sync' for others
+Available: 'sync', 'async'
+Defines whether CtrlSF works in a synchronous or an asynchronous way. Note
+that 'async' is only supported for Vim with version above 8.0.
+>
+    let g:ctrlsf_search_mode = 'async'
 <
 g:ctrlsf_selected_line_hl                          *'g:ctrlsf_selected_line_hl'*
 Default: 'p'

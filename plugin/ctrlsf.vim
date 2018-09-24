@@ -2,7 +2,7 @@
 " Description: An ack/ag/pt/rg powered code search and view tool.
 " Author: Ye Ding <dygvirus@gmail.com>
 " Licence: Vim licence
-" Version: 1.8.3
+" Version: 2.1.2
 " ============================================================================
 
 " Loading Guard {{{1
@@ -79,6 +79,12 @@ endf
 " }}}
 
 " Options {{{1
+" g:ctrlsf_absolute_file_path {{{2
+if !exists('g:ctrlsf_absolute_file_path')
+    let g:ctrlsf_absolute_file_path = 0
+endif
+" }}}
+
 " g:ctrlsf_ackprg {{{2
 if !exists('g:ctrlsf_ackprg')
     let g:ctrlsf_ackprg = ctrlsf#backend#Detect()
@@ -87,7 +93,10 @@ endif
 
 " g:ctrlsf_auto_close {{{2
 if !exists('g:ctrlsf_auto_close')
-    let g:ctrlsf_auto_close = 1
+    let g:ctrlsf_auto_close = {
+        \ "normal" : 1,
+        \ "compact": 0
+        \ }
 endif
 " }}}
 
@@ -127,6 +136,12 @@ if !exists('g:ctrlsf_default_root')
 endif
 " }}}
 
+" g:ctrlsf_default_view_mode {{{2
+if !exists('g:ctrlsf_default_view_mode')
+    let g:ctrlsf_default_view_mode = 'normal'
+endif
+" }}}
+
 " g:ctrlsf_extra_backend_args {{{2
 if !exists('g:ctrlsf_extra_backend_args')
     let g:ctrlsf_extra_backend_args = {}
@@ -147,7 +162,7 @@ endif
 
 " g:ctrlsf_mapping {{{
 let s:default_mapping = {
-    \ "open"    : ["<CR>", "o"],
+    \ "open"    : ["<CR>", "o", "<2-LeftMouse>"],
     \ "openb"   : "O",
     \ "split"   : "<C-O>",
     \ "vsplit"  : "",
@@ -156,8 +171,10 @@ let s:default_mapping = {
     \ "popen"   : "p",
     \ "popenf"  : "P",
     \ "quit"    : "q",
+    \ "stop"    : "<C-C>",
     \ "next"    : "<C-J>",
     \ "prev"    : "<C-K>",
+    \ "chgmode" : "M",
     \ "pquit"   : "q",
     \ "loclist" : "",
     \ }
@@ -169,6 +186,12 @@ else
         let g:ctrlsf_mapping[key] = get(g:ctrlsf_mapping, key,
             \ s:default_mapping[key])
     endfo
+endif
+" }}}
+"
+" g:ctrlsf_parse_speed {{{
+if !exists('g:ctrlsf_parse_speed')
+    let g:ctrlsf_parse_speed = 300
 endif
 " }}}
 
@@ -205,6 +228,16 @@ if !exists('g:ctrlsf_selected_line_hl')
 endif
 " }}}
 
+" g:ctrlsf_search_mode {{{2
+if !exists('g:ctrlsf_search_mode')
+    if !has('nvim') && (v:version < 800 || (v:version == 800 && !has('patch1039')))
+        let g:ctrlsf_search_mode = 'sync'
+    else
+        let g:ctrlsf_search_mode = 'async'
+    endif
+endif
+" }}}
+
 " g:ctrlsf_toggle_map_key {{{2
 if !exists('g:ctrlsf_toggle_map_key')
     let g:ctrlsf_toggle_map_key = ''
@@ -222,13 +255,15 @@ endif
 " }}}
 
 " Commands {{{1
-com! -n=* -comp=customlist,ctrlsf#comp#Completion CtrlSF         call ctrlsf#Search(<q-args>, 0)
-com! -n=* -comp=customlist,ctrlsf#comp#Completion CtrlSFQuickfix call ctrlsf#Search(<q-args>, 1)
+com! -n=* -comp=customlist,ctrlsf#comp#Completion CtrlSF         call ctrlsf#Search(<q-args>)
+com! -n=* -comp=customlist,ctrlsf#comp#Completion CtrlSFQuickfix call ctrlsf#Quickfix(<q-args>)
 com! -n=0                                         CtrlSFOpen     call ctrlsf#Open()
 com! -n=0                                         CtrlSFUpdate   call ctrlsf#Update()
 com! -n=0                                         CtrlSFClose    call ctrlsf#Quit()
 com! -n=0                                         CtrlSFClearHL  call ctrlsf#ClearSelectedLine()
 com! -n=0                                         CtrlSFToggle   call ctrlsf#Toggle()
+com! -n=0                                         CtrlSFStop     call ctrlsf#StopSearch()
+com! -n=0                                         CtrlSFFocus    call ctrlsf#Focus()
 " }}}
 
 " Maps {{{1

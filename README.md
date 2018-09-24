@@ -1,16 +1,18 @@
 # ctrlsf.vim
 
-An ack/ag/pt/rg powered code search and view tool, like ack.vim or `:vimgrep` but together with more context, and let you edit in-place with powerful edit mode.
+An ack/ag/pt/rg powered code search and view tool, takes advantage of Vim 8's power to support asynchronous searching, and lets you edit file in-place with *Edit Mode*.
 
 ### Search and Explore
 
-![ctrlsf demo](http://i.imgur.com/NOy8gwj.gif)
+A demo shows how to search a word in an asynchronous way.
+
+![ctrlsf async_demo](https://raw.githubusercontent.com/dyng/i/master/ctrlsf.vim/async-demo.gif)
 
 ### Edit Mode
 
-Here we rename a method named `MoveCursor()` to `Cursor()` in multiple files, using [vim-multiple-cursors][7].
+A demo shows how to rename a method named `MoveCursor()` to `Cursor()` in multiple files, using [vim-multiple-cursors][7].
 
-![ctrlsf_edit_demo](http://i.imgur.com/xMUm8Ii.gif)
+![ctrlsf_edit_demo](https://raw.githubusercontent.com/dyng/i/master/ctrlsf.vim/edit-mode.gif)
 
 ## Table of Contents
 
@@ -21,7 +23,6 @@ Here we rename a method named `MoveCursor()` to `Cursor()` in multiple files, us
 - [Use Your Own Map](#use-your-own-map)
 - [Edit Mode](#edit-mode)
   - [Limitation](#limitation)
-- [Quickfix Mode](#quickfix-mode)
 - [Arguments](#arguments)
   - [Example](#example)
 - [Tips](#tips)
@@ -34,13 +35,15 @@ Here we rename a method named `MoveCursor()` to `Cursor()` in multiple files, us
 
 - Search and display result in a user-friendly view with adjustable context.
 
-- Edit mode which is incredible useful when you are doing project-wide refactoring. (Inspired by [vim-ags][6])
+- Works in both asynchronous (for **Vim 8.0.1039+** and **NeoVim**) and synchronous (for older version of Vim) manner.
+
+- **Edit mode** which is incredible useful when you are working on project-wide refactoring. (Inspired by [vim-ags][6])
 
 - Preview mode for fast exploring.
 
-- View results in a quickfix window if you feel more familiar with quickfix window.
+- Has two types of view. For both users who love a **sublime-like**, rich context result window, and users who feel more comfortable with good old **quickfix** window. (similar to ack.vim)
 
-- Various options for customized search, view and edit.
+- Various options for customized search, view and edition.
 
 ## Installation
 
@@ -60,33 +63,36 @@ Here we rename a method named `MoveCursor()` to `Cursor()` in multiple files, us
 
 1. Run `:CtrlSF [pattern]`, it will split a new window to show search result.
 
-2. Press `Enter` to open corresponding file, or press `q` to quit.
+2. If you are doing an asynchronous searching, you can explore and edit other files in the meanwhile, and can always press `Ctrl-C` to stop searching.
 
-3. Press `p` to explore file in a preview window if you only want a glance.
+3. In the result window, press `Enter`/`o` to open corresponding file, or press `q` to quit.
 
-4. You can edit search result as you like. Whenever you apply a change, you can save your change to actual file by `:w`.
+4. Press `p` to explore file in a preview window if you only want a glance.
 
-5. If you change your mind after saving, you can always undo it by pressing `u` and saving it again.
+5. You can edit search result as you like. Whenever you apply a change, you can save your change to actual file by `:w`.
 
-6. `:CtrlSFOpen` can reopen CtrlSF window when you have closed CtrlSF window. It is free because it won't invoke a same but new search. A handy command `:CtrlSFToggle` is also available.
+6. If you change your mind after saving, you can always undo it by pressing `u` and saving it again.
 
-7. Alternatively run `:CtrlSFQuickfix [pattern]`, it will only open a quickfix
-   window to show search result.
+7. `:CtrlSFOpen` can reopen CtrlSF window when you have closed CtrlSF window. It is free because it won't invoke a same but new search. A handy command `:CtrlSFToggle` is also available.
+
+8. If you prefer a quickfix-like result window, just try to press `M` in CtrlSF window.
 
 ## Key Maps
 
 In CtrlSF window:
 
-- `Enter` - Open corresponding file of current line in the window which CtrlSF is launched from.
+- `Enter`, `o`, `double-click` - Open corresponding file of current line in the window which CtrlSF is launched from.
 - `<C-O>` - Like `Enter` but open file in a horizontal split window.
 - `t` - Like `Enter` but open file in a new tab.
 - `p` - Like `Enter` but open file in a preview window.
 - `P` - Like `Enter` but open file in a preview window and switch focus to it.
 - `O` - Like `Enter` but always leave CtrlSF window opening.
 - `T` - Like `t` but focus CtrlSF window instead of new opened tab.
+- `M` - Switch result window between **normal** view and **compact** view.
 - `q` - Quit CtrlSF window.
 - `<C-J>` - Move cursor to next match.
 - `<C-K>` - Move cursor to previous match.
+- `<C-C>` - Stop a background searching process.
 
 In preview window:
 
@@ -96,7 +102,7 @@ Some default defined keys may conflict with keys you have been used to when you 
 
 ## Use Your Own Map
 
-CtrlSF provides many maps you can use for quick accessing all features, here I list some most used maps.
+CtrlSF provides many maps which you can use for quick accessing all features, here I will list some most useful ones.
 
 - `<Plug>CtrlSFPrompt`
 
@@ -122,12 +128,6 @@ CtrlSF provides many maps you can use for quick accessing all features, here I l
 
     Input `:CtrlSF foo ` in command line where `foo` is the last search pattern of vim.
 
-There are also some maps for quickfix mode, for example:
-
-- `<Plug>CtrlsfQuickfixPrompt`
-
-    like `<Plug>CtrlSFPrompt` but instead invoking `:CtrlSFQuickfix`.
-
 For a full list of maps, please refer to the document.
 
 I strongly recommend you should do some maps for a nicer user experience, because typing 8 characters for every single search is really boring and painful experience. Another reason is that **one of the most useful feature 'Search Visual Selected Word' can be accessed by map only.**
@@ -143,9 +143,6 @@ nmap     <C-F>p <Plug>CtrlSFPwordPath
 nnoremap <C-F>o :CtrlSFOpen<CR>
 nnoremap <C-F>t :CtrlSFToggle<CR>
 inoremap <C-F>t <Esc>:CtrlSFToggle<CR>
-nmap     <C-F>l <Plug>CtrlSFQuickfixPrompt
-vmap     <C-F>l <Plug>CtrlSFQuickfixVwordPath
-vmap     <C-F>L <Plug>CtrlSFQuickfixVwordExec
 ```
 
 ## Edit Mode
@@ -164,24 +161,6 @@ vmap     <C-F>L <Plug>CtrlSFQuickfixVwordExec
 
 - If a file's content varies from last search, CtrlSF will refuse to write your changes to that file (for safety concern). As a rule of thumb, invoke a new search before editing, or just run `:CtrlSFUpdate`.
 
-## Quickfix Mode
-
-The primary motivation of creating CtrlSF is being tired of small, context free quickfix window, so there is no Quickfix Mode in CtrlSF at first. But some users requested for Quickfix Mode as they need it in some cases, I accepted, Quickfix Mode was then finally added into CtrlSF (#94).
-
-You can access Quickfix Mode by commands and maps.
-
-Command:
-
-- `:CtrlSFQuickfix [pattern]`
-
-Maps:
-
-- <Plug>CtrlSFQuickfixPrompt
-- <Plug>CtrlSFQuickfixVwordPath
-- <Plug>CtrlSFQuickfixVwordExec
-
-But, **as I've no idea about reinventing another ack.vim, only minimum features are implemented in Quickfix Mode. Actually no customization beyond normal quickfix window is applied currently, I choose to leave it to users.**
-
 ## Arguments
 
 CtrlSF has a lot of arguments you can use in search. Most arguments are similar to Ack/Ag's but not perfectly same. Here are some most frequently used arguments:
@@ -189,6 +168,7 @@ CtrlSF has a lot of arguments you can use in search. Most arguments are similar 
 - `-R` - Use regular expression pattern.
 - `-I`, `-S` - Search case-insensitively (`-I`) or case-sensitively (`-S`).
 - `-C`, `-A`, `-B` - Specify how many context lines to be printed, identical to their counterparts in Ag/Ack.
+- `-W` - Only match whole words.
 
 Read `:h ctrlsf-arguments` for a full list of arguments.
 
@@ -228,10 +208,13 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
 
 ## Configuration
 
-- `g:ctrlsf_auto_close` defines if CtrlSF close itself when you are opening some file. By default CtrlSF window will close automatically but you can prevent it by setting `g:ctrlsf_auto_close` to 0.
+- `g:ctrlsf_auto_close` defines if CtrlSF close itself when you are opening some file. By default, CtrlSF window will close automatically in `normal` view mode and keep open in `compact` view mode. You can customize the value as below:
 
     ```vim
-    let g:ctrlsf_auto_close = 0
+    let g:ctrlsf_auto_close = {
+        \ "normal" : 0,
+        \ "compact": 0
+        \}
     ```
 
 - `g:ctrlsf_case_sensitive` defines default case-sensitivity in search. Possible values are `yes`, `no` and `smart`, `smart` works the same as it is in vim. The default value is `smart`.
@@ -245,10 +228,17 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
     ```vim
     let g:ctrlsf_context = '-B 5 -A 3'
     ```
+
 - `g:ctrlsf_default_root` defines how CtrlSF find search root when no explicit path is given. Two possible values are `cwd` and `project`. `cwd` means current working directory and `project` means project root. CtrlSF locates project root by searching VCS root (.git, .hg, .svn, etc.)
 
     ```vim
     let g:ctrlsf_default_root = 'project'
+    ```
+
+- `g:ctrlsf_default_view_mode` defines default view mode which CtrlSF will use. Possible values are `normal` and `compact`. The default value is `normal`.
+
+    ```vim
+    let g:ctrlsf_default_view_mode = 'compact'
     ```
 
 - `g:ctrlsf_extra_backend_args` is a dictionary that defines extra arguments that will be passed *literally* to backend, especially useful when you have your favorite backend and need some backend-specific features. For example, using `ptignore` file for [pt][8] should be like
@@ -259,10 +249,11 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
         \ }
     ```
 
-- `g:ctrlsf_mapping` defines maps used in result window and preview window. Value of this option is a dictionary, where key is a method and value is a key for mapping. An empty value can disable that method. You can just define a subset of full dictionary, those not defined functionalities will use default key mapping.
+- `g:ctrlsf_mapping` defines maps used in result window and preview window. Value of this option is a dictionary, where key is a method and value is a key for mapping. An empty value can disable that method. To specify additional keys to run after a method, use the extended form demonstrated below to specify a `suffix`. You can just define a subset of full dictionary, those not defined functionalities will use default key mapping.
 
     ```vim
     let g:ctrlsf_mapping = {
+        \ "openb": { key: "O", suffix: "<C-w>p" },
         \ "next": "n",
         \ "prev": "N",
         \ }
@@ -278,6 +269,12 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
 
     ```vim
     let g:ctrlsf_regex_pattern = 1
+    ```
+
+- `g:ctrlsf_search_mode` defines whether CtrlSF works in synchronous or asynchronous way. `async` is the recommendation for users who are using Vim 8.0+.
+
+    ```vim
+    let g:ctrlsf_search_mode = 'async'
     ```
 
 - `g:ctrlsf_position` defines where CtrlSf places its window. Possible values are `left`, `right`, `top` and `bottom`. If nothing specified, the default value is `left`.

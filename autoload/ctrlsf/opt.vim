@@ -2,7 +2,7 @@
 " Description: An ack/ag/pt/rg powered code search and view tool.
 " Author: Ye Ding <dygvirus@gmail.com>
 " Licence: Vim licence
-" Version: 1.8.3
+" Version: 2.1.2
 " ============================================================================
 
 " option list of CtrlSF
@@ -12,6 +12,7 @@ let s:option_list = {
     \ '-before'     : {'args': 1},
     \ '-context'    : {'args': 1},
     \ '-filetype'   : {'args': 1},
+    \ '-word'       : {'args': 0},
     \ '-filematch'  : {'args': 1},
     \ '-ignorecase' : {'args': 0},
     \ '-ignoredir'  : {'args': 1},
@@ -28,6 +29,7 @@ let s:option_list = {
     \ '-L': {'fullname': '-literal'},
     \ '-R': {'fullname': '-regex'},
     \ '-S': {'fullname': '-matchcase'},
+    \ '-W': {'fullname': '-word'},
     \ }
 
 " default values to options
@@ -39,6 +41,14 @@ let s:default = {
 
 " options
 let s:options = {}
+
+" ctrlsf#opt#Reset()
+"
+" Reset all states of this module.
+"
+func! ctrlsf#opt#Reset() abort
+    let s:options = {}
+endf
 
 " OptionNames()
 "
@@ -141,7 +151,7 @@ func! ctrlsf#opt#GetPath() abort
             let resolved_path = expand(path, 0, 1)
 
             for r_path in resolved_path
-                call add(path_tokens, shellescape(r_path))
+                call add(path_tokens, r_path)
             endfo
         endfo
     else
@@ -171,13 +181,16 @@ func! ctrlsf#opt#GetPath() abort
             if empty(path)
                 if opt_fbroot ==# 'f'
                     let path = expand('%:p')
+                    if empty(path)
+                        let path = getcwd()
+                    endif
                 elseif opt_fbroot ==# 'w'
                     let path = getcwd()
                 endif
             endif
         endif
 
-        call add(path_tokens, shellescape(path))
+        call add(path_tokens, path)
     endif
 
     return path_tokens
@@ -209,6 +222,12 @@ func! ctrlsf#opt#GetIgnoreDir() abort
     return ignore_dir
 endf
 
+" AutoClose()
+"
+func! ctrlsf#opt#AutoClose() abort
+    return type(g:ctrlsf_auto_close) == type(0) ? g:ctrlsf_auto_close : g:ctrlsf_auto_close[ctrlsf#CurrentMode()]
+endf
+
 """""""""""""""""""""""""""""""""
 " Option Parsing
 """""""""""""""""""""""""""""""""
@@ -219,6 +238,7 @@ endf
 "
 func! s:ParseOptions(options_str) abort
     let options = {}
+    let no_more_options = 0
     let tokens  = ctrlsf#lex#Tokenize(a:options_str)
 
     let i = 0
@@ -227,7 +247,10 @@ func! s:ParseOptions(options_str) abort
         let i += 1
 
         if !has_key(s:option_list, token)
-            if token =~# '^-'
+            if token == '--'
+              let no_more_options = 1
+              continue
+            elseif token =~# '^-' && !no_more_options
                 call ctrlsf#log#Error("Unknown option '%s'. If you are user
                     \ from pre-v1.0, please be aware of that CtrlSF no longer
                     \ supports all options of ack and ag since v1.0. Read
@@ -291,7 +314,10 @@ func! ctrlsf#opt#ParseOptions(options_str) abort
     let s:options["_vimregex"] = ctrlsf#pat#Regex()
 
     " vimhlregex
-    let s:options["_vimhlregex"] = ctrlsf#pat#HighlightRegex()
+    let s:options["_vimhlregex"] = {
+                \ 'normal': ctrlsf#pat#HighlightRegex('normal'),
+                \ 'compact': ctrlsf#pat#HighlightRegex('compact')
+                \ }
 
     call ctrlsf#log#Debug("Options: %s", string(s:options))
 endf

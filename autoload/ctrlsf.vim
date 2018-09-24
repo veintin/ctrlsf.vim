@@ -2,7 +2,7 @@
 " Description: An ack/ag/pt/rg powered code search and view tool.
 " Author: Ye Ding <dygvirus@gmail.com>
 " Licence: Vim licence
-" Version: 1.8.3
+" Version: 2.1.2
 " ============================================================================
 
 """""""""""""""""""""""""""""""""
@@ -10,25 +10,54 @@
 """""""""""""""""""""""""""""""""
 
 " remember what user is searching
+let s:current_mode = ''
 let s:current_query = ''
-let s:only_quickfix = 0
 
 " s:ExecSearch()
 "
 " Basic process: query, parse, render and display.
 "
-func! s:ExecSearch(args, only_quickfix) abort
+func! s:ExecSearch(args) abort
+    " reset all states
+    call s:Reset()
+
     try
         call ctrlsf#opt#ParseOptions(a:args)
     catch /ParseOptionsException/
         return -1
     endtry
 
-    if ctrlsf#backend#SelfCheck() < 0
+    if ctrlsf#SelfCheck() < 0
         return -1
     endif
 
+    call ctrlsf#profile#Sample("StartSearch")
+    if g:ctrlsf_search_mode ==# 'sync'
+        call s:DoSearchSync(a:args)
+    else
+        call s:DoSearchAsync(a:args)
+    endif
+
+endf
+
+" s:Reset()
+"
+" Reset all states of many modules
+"
+func! s:Reset() abort
+    call ctrlsf#db#Reset()
+    call ctrlsf#opt#Reset()
+    call ctrlsf#win#Reset()
+    call ctrlsf#view#Reset()
+    call ctrlsf#async#Reset()
+    call ctrlsf#profile#Reset()
+endf
+
+" s:DoSearchSync()
+"
+func! s:DoSearchSync(args) abort
     let [success, output] = ctrlsf#backend#Run(a:args)
+    call ctrlsf#profile#Sample("FinishSearch")
     if !success
         call ctrlsf#log#Error('Failed to call backend. Error messages: %s',
             \ output)
@@ -40,23 +69,14 @@ func! s:ExecSearch(args, only_quickfix) abort
                 \ ctrlsf#backend#LastErrors())
 
     " Parsing
-    call ctrlsf#db#ParseAckprgResult(output)
+    call ctrlsf#profile#Sample("StartParse")
+    call ctrlsf#db#ParseBackendResult(output)
+    call ctrlsf#profile#Sample("FinishParse")
 
-    " Only populate and open the quickfix window
-    if a:only_quickfix
-      call setqflist(ctrlsf#db#MatchListQF())
-      botright copen
-      return
-    endif
-
-    call ctrlsf#win#OpenMainWindow()
-    call ctrlsf#win#Draw()
-    call ctrlsf#buf#ClearUndoHistory()
-    call ctrlsf#hl#HighlightMatch()
-
-    " scroll up to top line
-    1normal z<CR>
-    call ctrlsf#NextMatch(0, 1)
+    " Open and draw contents
+    call ctrlsf#profile#Sample("StartDraw")
+    call s:OpenAndDraw()
+    call ctrlsf#profile#Sample("FinishDraw")
 
     " populate quickfix and location list
     if g:ctrlsf_populate_qflist
@@ -65,9 +85,47 @@ func! s:ExecSearch(args, only_quickfix) abort
     call setloclist(0, ctrlsf#db#MatchListQF())
 endf
 
+" s:DoSearchAsync()
+"
+func! s:DoSearchAsync(args) abort
+    call ctrlsf#backend#RunAsync(a:args)
+
+    " open window and clear previous result
+    call s:Open()
+    call ctrlsf#win#SetModifiableByViewMode(0)
+    call ctrlsf#buf#WriteString("Searching...")
+    call ctrlsf#win#FocusCallerWindow()
+endf
+
+" SelfCheck()
+"
+func! ctrlsf#SelfCheck() abort
+    if !exists('g:ctrlsf_ackprg') || empty(g:ctrlsf_ackprg)
+        call ctrlsf#log#Error("Option 'g:ctrlsf_ackprg' is not defined or empty
+            \ .")
+        return -99
+    endif
+
+    let prg = g:ctrlsf_ackprg
+
+    if !executable(prg)
+        call ctrlsf#log#Error('Can not locate %s in PATH, make sure you have it
+            \ installed.', prg)
+        return -2
+    endif
+
+    if g:ctrlsf_search_mode ==# 'async' &&
+                \ (v:version < 800 || (v:version == 800 && !has('patch1039')))
+                \ && !has('nvim')
+        call ctrlsf#log#Error('Asynchronous searching is only supported for Vim
+                    \ with version above 8.0.1039. Please update your vim.')
+        return -3
+    endif
+endf
+
 " Search()
 "
-func! ctrlsf#Search(args, only_quickfix) abort
+func! ctrlsf#Search(args, ...) abort
     let args = a:args
 
     " If no pattern is given, use word under the cursor
@@ -76,9 +134,23 @@ func! ctrlsf#Search(args, only_quickfix) abort
     endif
 
     let s:current_query = args
-    let s:only_quickfix = a:only_quickfix
 
-    call s:ExecSearch(s:current_query, s:only_quickfix)
+    " if view mode is not specified, use 'g:ctrlsf_default_view_mode'
+    let s:current_mode  = empty(a:000) ?
+                \ s:InitViewMode() :
+                \ a:1
+
+    call s:ExecSearch(s:current_query)
+endf
+
+" InitViewMode()
+"
+func! s:InitViewMode() abort
+    if ctrlsf#win#FindMainWindow() < 0
+        return g:ctrlsf_default_view_mode
+    else
+        return ctrlsf#CurrentMode()
+    endif
 endf
 
 " Update()
@@ -87,7 +159,7 @@ func! ctrlsf#Update() abort
     if empty(s:current_query)
         return -1
     endif
-    call s:ExecSearch(s:current_query, s:only_quickfix)
+    call s:ExecSearch(s:current_query)
 endf
 
 " Open()
@@ -95,6 +167,7 @@ endf
 func! ctrlsf#Open() abort
     call ctrlsf#win#OpenMainWindow()
     call ctrlsf#hl#HighlightMatch()
+    call ctrlsf#win#MoveCursorCurrentLineMatch()
 endf
 
 " Redraw()
@@ -105,9 +178,40 @@ func! ctrlsf#Redraw() abort
     call ctrlsf#win#MoveCursor(wlnum, lnum, col)
 endf
 
+" SwitchViewMode()
+"
+func! ctrlsf#SwitchViewMode() abort
+    if ctrlsf#async#IsSearching()
+        call ctrlsf#log#Warn("Can't switch view mode when searching is processing.")
+        return
+    endif
+
+    let next = ctrlsf#CurrentMode() ==# 'normal' ? 'compact' : 'normal'
+
+    " set current view mode
+    let s:current_mode = next
+
+    call ctrlsf#Quit()
+    call s:OpenAndDraw()
+endf
+
+" Quickfix()
+"
+" This is DEPRECATED method which is used only for backward-compatible
+"
+func! ctrlsf#Quickfix(args) abort
+    call ctrlsf#log#Notice("CtrlSFQuickfix is DEPRECATED! Invoking CtrlSF's compact view instead.")
+    sleep 1
+    call ctrlsf#Search(a:args, 'compact')
+endf
+
 " Save()
 "
 func! ctrlsf#Save()
+    if ctrlsf#CurrentMode() !=# 'normal'
+        ctrlsf#log#Notice("Edit mode is disabled in compact view.")
+    endif
+
     if !&l:modified
         return
     endif
@@ -156,10 +260,38 @@ func! ctrlsf#Toggle() abort
     endif
 endf
 
+" ClearSelectedLine()
+"
+func! ctrlsf#ClearSelectedLine() abort
+    call ctrlsf#hl#ClearSelectedLine()
+endf
+
+" ToggleMap()
+"
+func! ctrlsf#ToggleMap() abort
+    call ctrlsf#buf#ToggleMap()
+
+    if b:ctrlsf_map_enabled
+        echo "Maps enabled."
+    else
+        echo "Maps disabled."
+    endif
+endf
+
+" Focus()
+"
+func! ctrlsf#Focus() abort
+    if ctrlsf#win#FocusMainWindow() != -1
+        " scroll up to top line
+        1normal! ^
+        call ctrlsf#NextMatch(1)
+    endif
+endf
+
 " JumpTo()
 "
 func! ctrlsf#JumpTo(mode) abort
-    let [file, line, match] = ctrlsf#view#Reflect(line('.'))
+    let [file, line, match] = ctrlsf#view#Locate(line('.'))
 
     if empty(file) || empty(line)
         return
@@ -198,19 +330,17 @@ endf
 
 " s:NextMatch()
 "
-" Move cursor to the next match after a line specified by 'lnum'.
+" Move cursor to the next match after current cursor position.
 "
-" If given line number is -1, use current line instead.
-"
-func! ctrlsf#NextMatch(lnum, forward) abort
-    let cur_vlnum     = a:lnum == -1 ? line('.') : a:lnum
-    let [vlnum, vcol] = ctrlsf#view#FindNextMatch(cur_vlnum, a:forward)
+func! ctrlsf#NextMatch(forward) abort
+    let [_, cur_vlnum, cur_vcol, _] = getpos('.')
+    let [vlnum, vcol] = ctrlsf#view#FindNextMatch(a:forward, &wrapscan)
 
     if vlnum > 0
-        if a:forward && vlnum <= cur_vlnum
+        if a:forward && (vlnum < cur_vlnum || (vlnum == cur_vlnum && vcol < cur_vcol))
             redraw!
             call ctrlsf#log#Notice("search hit BOTTOM, continuing at TOP")
-        elseif !a:forward && vlnum >= cur_vlnum
+        elseif !a:forward && (vlnum > cur_vlnum || (vlnum == cur_vlnum && vcol > cur_vcol))
             redraw!
             call ctrlsf#log#Notice("search hit TOP, continuing at BOTTOM")
         else
@@ -219,6 +349,19 @@ func! ctrlsf#NextMatch(lnum, forward) abort
 
         call cursor(vlnum, vcol)
     endif
+endf
+
+" CurrentMode()
+"
+func! ctrlsf#CurrentMode()
+    let vmode = empty(s:current_mode) ? 'normal' : s:current_mode
+    return vmode
+endf
+
+" StopSearch()
+"
+func! ctrlsf#StopSearch()
+    call ctrlsf#async#StopSearch()
 endf
 
 " OpenFileInWindow()
@@ -238,7 +381,7 @@ endf
 " '2' means split vertically
 "
 func! s:OpenFileInWindow(file, lnum, col, mode, split) abort
-    if a:mode == 1 && g:ctrlsf_auto_close
+    if a:mode == 1 && ctrlsf#opt#AutoClose()
         call s:Quit()
     endif
 
@@ -248,7 +391,7 @@ func! s:OpenFileInWindow(file, lnum, col, mode, split) abort
     else
         exec target_winnr . 'wincmd w'
 
-        if bufname('%') !~# a:file
+        if bufname('%') !=# a:file
             if a:split || (&modified && !&hidden)
                 if a:split == 2
                     exec 'silent vertical split ' . fnameescape(a:file)
@@ -261,7 +404,7 @@ func! s:OpenFileInWindow(file, lnum, col, mode, split) abort
         endif
     endif
 
-    call ctrlsf#win#MoveCentralCursor(a:lnum, a:col)
+    call ctrlsf#win#MoveCursorCentral(a:lnum, a:col)
 
     if g:ctrlsf_selected_line_hl =~ 'o'
         call ctrlsf#hl#HighlightSelectedLine()
@@ -278,13 +421,13 @@ endf
 " and never close CtrlSF window.
 "
 func! s:OpenFileInTab(file, lnum, col, mode) abort
-    if a:mode == 1 && g:ctrlsf_auto_close
+    if a:mode == 1 && ctrlsf#opt#AutoClose()
         call s:Quit()
     endif
 
     exec 'silen tabedit ' . fnameescape(a:file)
 
-    call ctrlsf#win#MoveCentralCursor(a:lnum, a:col)
+    call ctrlsf#win#MoveCursorCentral(a:lnum, a:col)
 
     if g:ctrlsf_selected_line_hl =~ 'o'
         call ctrlsf#hl#HighlightSelectedLine()
@@ -309,7 +452,7 @@ func! s:PreviewFile(file, lnum, col, follow) abort
         exec 'doau filetypedetect BufRead ' . fnameescape(a:file)
     endif
 
-    call ctrlsf#win#MoveCentralCursor(a:lnum, a:col)
+    call ctrlsf#win#MoveCursorCentral(a:lnum, a:col)
 
     if g:ctrlsf_selected_line_hl =~ 'p'
         call ctrlsf#hl#HighlightSelectedLine()
@@ -320,27 +463,30 @@ func! s:PreviewFile(file, lnum, col, follow) abort
     endif
 endf
 
+" s:Open()
+"
+func! s:Open() abort
+    call ctrlsf#win#OpenMainWindow()
+    call ctrlsf#hl#ReloadSyntax()
+    call ctrlsf#hl#HighlightMatch()
+endf
+
+" s:OpenAndDraw()
+"
+func! s:OpenAndDraw() abort
+    call s:Open()
+    call ctrlsf#win#Draw()
+    call ctrlsf#buf#ClearUndoHistory()
+
+    " scroll up to top line
+    1normal! ^
+    call ctrlsf#NextMatch(1)
+endf
+
 " s:Quit()
 "
 func! s:Quit() abort
+    call ctrlsf#async#StopSearch()
     call ctrlsf#preview#ClosePreviewWindow()
     call ctrlsf#win#CloseMainWindow()
-endf
-
-" ClearSelectedLine()
-"
-func! ctrlsf#ClearSelectedLine() abort
-    call ctrlsf#hl#ClearSelectedLine()
-endf
-
-" ToggleMap()
-"
-func! ctrlsf#ToggleMap() abort
-    call ctrlsf#buf#ToggleMap()
-
-    if b:ctrlsf_map_enabled
-        echo "Maps enabled."
-    else
-        echo "Maps disabled."
-    endif
 endf

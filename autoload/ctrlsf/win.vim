@@ -2,7 +2,7 @@
 " Description: An ack/ag/pt/rg powered code search and view tool.
 " Author: Ye Ding <dygvirus@gmail.com>
 " Licence: Vim licence
-" Version: 1.8.3
+" Version: 2.1.2
 " ============================================================================
 
 " ctrlsf buffer's name
@@ -11,8 +11,17 @@ let s:MAIN_BUF_NAME = "__CtrlSF__"
 " window which brings up ctrlsf window
 let s:caller_win = {
     \ 'bufnr' : -1,
-    \ 'winnr' : -1,
+    \ 'winid' : 0,
     \ }
+
+" remember how many lines have been drawn
+let s:drawn_lines = 0
+
+" Reset(0
+"
+func! ctrlsf#win#Reset() abort
+    let s:drawn_lines = 0
+endf
 
 """""""""""""""""""""""""""""""""
 " Open & Close
@@ -21,10 +30,10 @@ let s:caller_win = {
 " OpenMainWindow()
 "
 func! ctrlsf#win#OpenMainWindow() abort
-    " backup current bufnr and winnr
+    " backup current bufnr and winid
     let s:caller_win = {
         \ 'bufnr' : bufnr('%'),
-        \ 'winnr' : winnr(),
+        \ 'winid' : win_getid(winnr()),
         \ }
 
     " try to focus an existing ctrlsf window, initialize a new one if failed
@@ -36,29 +45,45 @@ func! ctrlsf#win#OpenMainWindow() abort
     " be sure doing this only when *opening new window*
     call ctrlsf#win#BackupAllWinSize()
 
-    if g:ctrlsf_winsize =~ '\d\{1,2}%'
-        if g:ctrlsf_position == "left" || g:ctrlsf_position == "right"
-            let winsize = &columns * str2nr(g:ctrlsf_winsize) / 100
+    let vmode = ctrlsf#CurrentMode()
+
+    if vmode ==# 'normal'
+        " normal mode
+        if g:ctrlsf_winsize =~ '\d\{1,2}%'
+            if g:ctrlsf_position == "left" || g:ctrlsf_position == "right"
+                let winsize = &columns * str2nr(g:ctrlsf_winsize) / 100
+            else
+                let winsize = &lines * str2nr(g:ctrlsf_winsize) / 100
+            endif
+        elseif g:ctrlsf_winsize =~ '\d\+'
+            let winsize = str2nr(g:ctrlsf_winsize)
         else
-            let winsize = &lines * str2nr(g:ctrlsf_winsize) / 100
+            if g:ctrlsf_position == "left" || g:ctrlsf_position == "right"
+                let winsize = &columns / 2
+            else
+                let winsize = &lines / 2
+            endif
         endif
-    elseif g:ctrlsf_winsize =~ '\d\+'
-        let winsize = str2nr(g:ctrlsf_winsize)
+
+        let openpos = {
+              \ 'top'    : 'topleft',  'left'  : 'topleft vertical',
+              \ 'bottom' : 'botright', 'right' : 'botright vertical'}
+              \[g:ctrlsf_position] . ' '
     else
-        if g:ctrlsf_position == "left" || g:ctrlsf_position == "right"
-            let winsize = &columns / 2
-        else
-            let winsize = &lines / 2
-        endif
+        " compact mode: fixed window size and position
+        let winsize = 10
+        let openpos = 'botright'
     endif
 
-    let openpos = {
-          \ 'top'    : 'topleft',  'left'  : 'topleft vertical',
-          \ 'bottom' : 'botright', 'right' : 'botright vertical'}
-          \[g:ctrlsf_position] . ' '
-    exec 'silent keepalt ' . openpos . winsize . 'split ' . (bufnr('__CtrlSF__') != -1 ? '+b'.bufnr('__CtrlSF__') : '__CtrlSF__')
+
+    " open window
+    exec 'silent keepalt ' . openpos . winsize . 'split ' .
+                \ (bufnr('__CtrlSF__') != -1 ? '+b'.bufnr('__CtrlSF__') : '__CtrlSF__')
 
     call s:InitMainWindow()
+
+    " set 'modifiable' flag depending on current view mode
+    call ctrlsf#win#SetModifiableByViewMode(1)
 
     " resize other windows
     call s:ResizeNeighborWins()
@@ -67,8 +92,38 @@ endf
 " Draw()
 "
 func! ctrlsf#win#Draw() abort
+    let s:drawn_lines = 0
     let content = ctrlsf#view#Render()
     silent! undojoin | keepjumps call ctrlsf#buf#WriteString(content)
+endf
+
+" DrawIncr()
+"
+func! ctrlsf#win#DrawIncr() abort
+    if ctrlsf#CurrentMode() == 'normal'
+        silent! undojoin | keepjumps
+                    \ call ctrlsf#buf#SetLine(s:MAIN_BUF_NAME, 1, ctrlsf#view#RenderSummary())
+        if s:drawn_lines == 0
+            let s:drawn_lines = 1
+        endif
+    endif
+
+    let new_lines = ctrlsf#view#RenderIncr()
+    if !empty(new_lines)
+        silent! undojoin | keepjumps
+                    \ call ctrlsf#buf#SetLine(s:MAIN_BUF_NAME, s:drawn_lines + 1, new_lines)
+    endif
+    let s:drawn_lines = s:drawn_lines + len(new_lines)
+endf
+
+" SetModifiable()
+"
+func! ctrlsf#win#SetModifiableByViewMode(modifiable) abort
+    if ctrlsf#CurrentMode() ==# 'normal'
+        call setbufvar(s:MAIN_BUF_NAME, '&modifiable', a:modifiable)
+    else
+        call setbufvar(s:MAIN_BUF_NAME, '&modifiable', 0)
+    endif
 endf
 
 " CloseMainWindow()
@@ -79,12 +134,17 @@ func! ctrlsf#win#CloseMainWindow() abort
     endif
 
     " Surely we are in CtrlSF window
-    close
+    try
+      close
 
-    " restore width/height of other windows
-    call ctrlsf#win#RestoreAllWinSize()
+      " restore width/height of other windows
+      call ctrlsf#win#RestoreAllWinSize()
 
-    call ctrlsf#win#FocusCallerWindow()
+      call ctrlsf#win#FocusCallerWindow()
+    catch /^Vim\%((\a\+)\)\=:E444/
+      " This is the last window, simply delete the buffer
+      bdelete
+    endtry
 endf
 
 " ResizeNeighborWins()
@@ -93,6 +153,14 @@ func! s:ResizeNeighborWins() abort
     setl winfixwidth
     setl winfixheight
     wincmd =
+endf
+
+" UndoAllChanges()
+"
+func! s:UndoAllChanges() abort
+    if ctrlsf#win#InMainWindow()
+        call ctrlsf#buf#UndoAllChanges()
+    endif
 endf
 
 " InitMainWindow()
@@ -113,12 +181,14 @@ func! s:InitMainWindow() abort
     setl nobuflisted
     setl nolist
     setl nonumber
+    setl norelativenumber
     setl nowrap
     setl winfixwidth
     setl winfixheight
     setl textwidth=0
     setl nospell
     setl nofoldenable
+    setl cursorline
 
     " map
     call ctrlsf#buf#ToggleMap(1)
@@ -129,13 +199,14 @@ func! s:InitMainWindow() abort
     endif
 
     " cmd
-    command! -buffer CtrlSFToggleMap call ctrlsf#ToggleMap()
+    command! -buffer CtrlSFToggleMap      call ctrlsf#ToggleMap()
+    command! -buffer CtrlSFSwitchViewMode call ctrlsf#SwitchViewMode()
 
     " autocmd
     augroup ctrlsf
         au!
         au BufWriteCmd         <buffer> call ctrlsf#Save()
-        au BufHidden,BufUnload <buffer> call ctrlsf#buf#UndoAllChanges()
+        au BufHidden,BufUnload <buffer> call s:UndoAllChanges()
     augroup END
 
     " hook for user customization
@@ -146,15 +217,26 @@ func! s:InitMainWindow() abort
     let b:ctrlsf_initialized = 1
 endf
 
-
 """""""""""""""""""""""""""""""""
 " Window Navigation
 """""""""""""""""""""""""""""""""
+
+" InWindow()
+"
+func! ctrlsf#win#InWindow(buf_name) abort
+    return bufname("%") ==# a:buf_name
+endf
 
 " FindWindow()
 "
 func! ctrlsf#win#FindWindow(buf_name) abort
     return bufwinnr(a:buf_name)
+endf
+
+" InMainWindow()
+"
+func! ctrlsf#win#InMainWindow() abort
+    return ctrlsf#win#InWindow(s:MAIN_BUF_NAME)
 endf
 
 " FocusWindow()
@@ -192,12 +274,7 @@ endf
 " FindCallerWindow()
 "
 func! ctrlsf#win#FindCallerWindow() abort
-    let ctrlsf_winnr = ctrlsf#win#FindMainWindow()
-    if ctrlsf_winnr > 0 && ctrlsf_winnr <= s:caller_win.winnr
-        return s:caller_win.winnr + 1
-    else
-        return s:caller_win.winnr
-    endif
+    return s:caller_win.winid > 0 ? win_id2win(s:caller_win.winid) : -1
 endf
 
 " FocusCallerWindow()
@@ -220,7 +297,7 @@ func! ctrlsf#win#FindTargetWindow(file) abort
     endif
 
     " case: previous window where ctrlsf was triggered
-    let target_winnr = s:caller_win.winnr
+    let target_winnr = ctrlsf#win#FindCallerWindow()
 
     let ctrlsf_winnr = ctrlsf#win#FindMainWindow()
     if ctrlsf_winnr > 0 && ctrlsf_winnr <= target_winnr
@@ -270,15 +347,29 @@ func! ctrlsf#win#MoveCursor(wlnum, lnum, col) abort
     normal zv
 endf
 
-" MoveCentralCursor()
+" MoveCursorCentral()
 "
-func! ctrlsf#win#MoveCentralCursor(lnum, col) abort
+func! ctrlsf#win#MoveCursorCentral(lnum, col) abort
     " Move cursor to specific position
     exec 'keepjumps normal ' . a:lnum . 'z.'
     call cursor(a:lnum, a:col)
 
     " Open fold
     normal zv
+endf
+
+" MoveCursorCurrentLineMatch()
+"
+" This method is used to work around a weird behavior of vim.
+" If user reopens ctrlsf window, cursor is in the same line when window
+" exitting, but this is not true for column, which is always in column 1
+"
+func! ctrlsf#win#MoveCursorCurrentLineMatch() abort
+    let cur_vlnum = line('.')
+    let [vlnum, vcol] = ctrlsf#view#FindNextMatch(1, 0)
+    if cur_vlnum == vlnum
+        call cursor(vlnum, vcol)
+    endif
 endf
 
 """""""""""""""""""""""""""""""""
