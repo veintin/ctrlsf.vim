@@ -217,6 +217,19 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
         \}
     ```
 
+- `g:ctrlsf_auto_focus` defines how CtrlSF focuses result pane when working in async search mode. By default, CtrlSF will not focus at all, setting to `start` makes CtrlSF focus at search starting, setting to `done` makes CtrlSF focus at search is done, but only for immediately finished search. An additional `duration_less_than` is used to define max duration of a search can be focused for 'at done', which is an integer value of milliseconds.
+
+    ```vim
+    let g:ctrlsf_auto_focus = {
+        \ "at": "start"
+        \ }
+    " or
+    let g:ctrlsf_auto_focus = {
+        \ "at": "done",
+        \ "duration_less_than": 1000
+        \ }
+    ```
+
 - `g:ctrlsf_case_sensitive` defines default case-sensitivity in search. Possible values are `yes`, `no` and `smart`, `smart` works the same as it is in vim. The default value is `smart`.
 
     ```vim
@@ -247,6 +260,12 @@ Read `:h ctrlsf-arguments` for a full list of arguments.
     let g:ctrlsf_extra_backend_args = {
         \ 'pt': '--home-ptignore'
         \ }
+    ```
+
+- `g:ctrlsf_extra_root_markers` is a list contains custom root markers. For example, this option is set `['.root']`, and there exists a file or directory `/home/your/project/.root`, then `/home/your/project` will be recognized as project root.
+
+    ```vim
+    let g:ctrlsf_extra_root_markers = ['.root']
     ```
 
 - `g:ctrlsf_mapping` defines maps used in result window and preview window. Value of this option is a dictionary, where key is a method and value is a key for mapping. An empty value can disable that method. To specify additional keys to run after a method, use the extended form demonstrated below to specify a `suffix`. You can just define a subset of full dictionary, those not defined functionalities will use default key mapping.

@@ -100,6 +100,20 @@ if !exists('g:ctrlsf_auto_close')
 endif
 " }}}
 
+" g:ctrlsf_auto_focus {{{2
+if !exists('g:ctrlsf_auto_focus')
+    let g:ctrlsf_auto_focus = {
+        \ "at" : "none",
+        \ }
+else
+    " set default 'duration_less_than': 1000 milliseconds
+    if g:ctrlsf_auto_focus['at'] ==# 'done'
+        \ && !has_key(g:ctrlsf_auto_focus, 'duration_less_than')
+        let g:ctrlsf_auto_focus['duration_less_than'] = 1000
+    endif
+endif
+" }}}
+
 " g:ctrlsf_case_sensitive {{{2
 if !exists('g:ctrlsf_case_sensitive')
     let g:ctrlsf_case_sensitive = 'smart'
@@ -111,7 +125,7 @@ if !exists('g:ctrlsf_confirm_save')
     let g:ctrlsf_confirm_save = 1
 endif
 " }}}
-"
+
 " g:ctrlsf_confirm_unsaving_quit {{{2
 if !exists('g:ctrlsf_confirm_unsaving_quit')
     let g:ctrlsf_confirm_unsaving_quit = 1
@@ -145,6 +159,18 @@ endif
 " g:ctrlsf_extra_backend_args {{{2
 if !exists('g:ctrlsf_extra_backend_args')
     let g:ctrlsf_extra_backend_args = {}
+endif
+" }}}
+
+" g:ctrlsf_extra_root_markers {{{2
+if !exists('g:ctrlsf_extra_root_markers')
+    let g:ctrlsf_extra_root_markers = []
+endif
+" }}}
+
+" g:ctrlsf_follow_symlinks {{{2
+if !exists('g:ctrlsf_follow_symlinks')
+    let g:ctrlsf_follow_symlinks = 1
 endif
 " }}}
 
@@ -188,7 +214,7 @@ else
     endfo
 endif
 " }}}
-"
+
 " g:ctrlsf_parse_speed {{{
 if !exists('g:ctrlsf_parse_speed')
     let g:ctrlsf_parse_speed = 300
